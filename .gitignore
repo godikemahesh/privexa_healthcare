@@ -1,0 +1,15 @@
+.env
+*.db
+simulator/data/
+__pycache__/
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+contracts/artifacts/
+contracts/cache/
+contracts/deployments/
+test-results/
+playwright-report/
+*.db-wal
+*.db-shm
