@@ -1,0 +1,84 @@
+# Render Blueprint: Privexa API, two simulated hospitals and a PostgreSQL database.
+# The web app is deployed separately on Vercel (apps/web/vercel.json). See docs/deployment.md.
+
+databases:
+  - name: privexa-db
+    plan: free
+    databaseName: privexa
+
+services:
+  - type: web
+    name: privexa-api
+    runtime: python
+    plan: free
+    rootDir: apps/api
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.14
+      - key: ENVIRONMENT
+        value: hosted
+      - key: DATABASE_URL
+        fromDatabase:
+          name: privexa-db
+          property: connectionString
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CORS_ORIGINS
+        sync: false # your Vercel URL, e.g. https://privexa.vercel.app
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_PASSWORD
+        value: privexa-demo
+      - key: HOSPITAL_A_FHIR_URL
+        value: https://privexa-hospital-a.onrender.com/fhir
+      - key: HOSPITAL_B_FHIR_URL
+        value: https://privexa-hospital-b.onrender.com/fhir
+      # Free instances sleep when idle and take up to a minute to wake.
+      - key: FHIR_TIMEOUT_SECONDS
+        value: "30"
+      - key: FHIR_MAX_RETRIES
+        value: "2"
+      # Off until the AuditAnchor contract is deployed to a public test network (docs/deployment.md, step 5).
+      - key: ANCHOR_ENABLED
+        value: "false"
+      - key: CHAIN_RPC_URL
+        sync: false
+      - key: ANCHOR_CONTRACT_ADDRESS
+        sync: false
+      - key: ANCHOR_PRIVATE_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: CONTACT_TO
+        sync: false
+
+  - type: web
+    name: privexa-hospital-a
+    runtime: python
+    plan: free
+    buildCommand: pip install fastapi==0.115.12 "uvicorn[standard]==0.34.3" httpx==0.28.1
+    startCommand: python simulator/fhir_server.py --name "MetroCare Medical Center" --host 0.0.0.0 --db /tmp/metrocare.db --seed metrocare
+    healthCheckPath: /fhir/metadata
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.14
+
+  - type: web
+    name: privexa-hospital-b
+    runtime: python
+    plan: free
+    buildCommand: pip install fastapi==0.115.12 "uvicorn[standard]==0.34.3" httpx==0.28.1
+    startCommand: python simulator/fhir_server.py --name "Sunrise General Hospital" --host 0.0.0.0 --db /tmp/sunrise.db --seed sunrise
+    healthCheckPath: /fhir/metadata
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.14

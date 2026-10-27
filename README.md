@@ -150,7 +150,8 @@ Copy `.env.example` to `.env` (setup does this). Key settings:
 | `CONTACT_WEBHOOK_URL` or `SMTP_*` + `CONTACT_TO` | Contact delivery — see [docs/contact-setup.md](docs/contact-setup.md) |
 | `VITE_SITE_URL`, `VITE_CONTACT_EMAIL` | Canonical URLs, sitemap, public contact email |
 
-For a hosted deployment: `ENVIRONMENT=hosted`, `COOKIE_SECURE=true`, strict `CORS_ORIGINS`, PostgreSQL,
+**To deploy on Vercel + Render, follow [docs/deployment.md](docs/deployment.md)** (`render.yaml` and
+`apps/web/vercel.json` are ready). In general, for a hosted deployment: `ENVIRONMENT=hosted`, `COOKIE_SECURE=true`, strict `CORS_ORIGINS`, PostgreSQL,
 `DEMO_MODE=false` unless it is a public demo, and never expose the simulator or chain ports. Build the
 web app with `npm run build` and serve `apps/web/dist` with `/api` proxied to the API.
 

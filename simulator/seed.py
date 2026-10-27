@@ -240,16 +240,22 @@ def load(url: str, resources: list[dict]) -> None:
                 raise SystemExit(f"Load failed: HTTP {r.status_code} {r.text[:300]}")
 
 
-def main() -> None:
+def generate() -> dict[str, list[dict]]:
+    """All synthetic resources per hospital slug, with the cross-hospital scenario applied."""
     data = {h["slug"]: build(h) for h in HOSPITALS}
     apply_scenario(data["metrocare"][0][0], data["sunrise"][0][0], data["sunrise"][1][0])
+    return {slug: [r for p, hist in pts for r in [p, *hist]] for slug, pts in data.items()}
+
+
+def main() -> None:
+    generated = generate()
     for h in HOSPITALS:
         url = os.environ.get(h["url_env"], h["url"])
         wait_for(url, h["name"])
-        resources = [r for p, hist in data[h["slug"]] for r in [p, *hist]]
+        resources = generated[h["slug"]]
         load(url, resources)
         total = httpx.get(f"{url}/Patient", params={"_summary": "count"}).json()["total"]
-        print(f"[seed] {h['name']}: {len(data[h['slug']])} synthetic patients, {len(resources)} resources loaded (server reports {total} patients)")
+        print(f"[seed] {h['name']}: {sum(r['resourceType'] == 'Patient' for r in resources)} synthetic patients, {len(resources)} resources loaded (server reports {total} patients)")
     print("[seed] Scenario patient: Ananya Krishnan (MetroCare MRN MC-100200, Sunrise MRN SG-100200). All data is synthetic.")
 
 

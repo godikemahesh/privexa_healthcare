@@ -5,6 +5,9 @@ Each hospital runs as its own process with its own SQLite database:
     python simulator/fhir_server.py --name "MetroCare Medical Center" --port 8081 --db simulator/data/metrocare.db
     python simulator/fhir_server.py --name "Sunrise General Hospital" --port 8082 --db simulator/data/sunrise.db
 
+On hosts with ephemeral disks (e.g. Render), add --seed metrocare|sunrise to load the synthetic records
+at startup; --port defaults to $PORT.
+
 Supported (subset of the FHIR R4 RESTful API):
   GET  /fhir/metadata                      CapabilityStatement
   GET  /fhir/{type}?params                 search -> searchset Bundle
@@ -19,6 +22,7 @@ Everything served is synthetic demonstration data.
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import threading
@@ -282,11 +286,20 @@ def create_app(name: str, store: Store) -> FastAPI:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", required=True)
-    ap.add_argument("--port", type=int, required=True)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 0)) or None, required="PORT" not in os.environ)
     ap.add_argument("--db", required=True)
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--seed", choices=["metrocare", "sunrise"], help="load this hospital's synthetic records at startup")
     a = ap.parse_args()
-    uvicorn.run(create_app(a.name, Store(Path(a.db))), host=a.host, port=a.port, log_level="warning")
+    store = Store(Path(a.db))
+    if a.seed:
+        from seed import generate  # same directory; deterministic, so reloading is a no-op
+
+        resources = generate()[a.seed]
+        for k in range(0, len(resources), 300):
+            store.put_many(resources[k : k + 300])
+        print(f"[{a.name}] loaded {len(resources)} synthetic resources", flush=True)
+    uvicorn.run(create_app(a.name, store), host=a.host, port=a.port, log_level="warning")
 
 
 if __name__ == "__main__":
